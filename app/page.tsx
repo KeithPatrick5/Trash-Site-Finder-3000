@@ -118,15 +118,26 @@ export default function Home() {
   }
 
   return <main className="shell">
-    <section className="hero">
-      <div>
-        <div className="kicker">bad websites go in. hot leads come out.</div>
-        <h1>Trash Site Finder 3000 v2.2 Local</h1>
-        <p className="sub">Local dashboard + local worker. Scanning, screenshots, and email sending happen from your MacBook, not Vercel.</p>
+    <header className="topbar">
+      <div className="brand">
+        <div className="mark">TSF</div>
+        <div>
+          <div className="brandTitle">Trash Site Finder 3000</div>
+          <div className="brandSub">Local scan command center</div>
+        </div>
       </div>
-      <div className="card" style={{ minWidth: 280 }}>
-        <b>Status</b>
-        <p className="small">{log}</p>
+      <div className="systemState"><span className="dot" /> Mac worker mode · no Vercel</div>
+    </header>
+
+    <section className="hero">
+      <div className="heroMain">
+        <div className="kicker">Website failure detection / outreach ops</div>
+        <h1>Find broken sites. Close rebuild jobs.</h1>
+        <p className="sub">A local lead machine for finding businesses with no site, dead sites, weak mobile pages, missing contact paths, and rebuild opportunities. Scans run from this MacBook.</p>
+      </div>
+      <div className="card heroStatus" style={{ minWidth: 280 }}>
+        <h2>Status</h2>
+        <p className="small statusText">{log}</p>
         {job && <div className="progress"><span style={{ width: `${Math.round((job.scannedCombos / Math.max(1, job.totalCombos)) * 100)}%` }} /></div>}
         <div className="actions">
           <a className="btn secondary" href="/api/export">Export CSV</a>
@@ -149,7 +160,7 @@ export default function Home() {
     <section className="grid">
       <aside className="card">
         <h2>Scanner</h2>
-        <div className="notice">Create scan jobs here. Your local worker processes them. Run npm run local for everything, or npm run worker in a second terminal.</div>
+        <div className="notice">Create targeted jobs here. The local worker processes them from your Mac, so the dashboard stays cheap and the scan traffic never hits Vercel.</div>
         <div className="row">
           <label>Professions</label>
           <select multiple size={10} value={selectedProfessions} onChange={e => setSelectedProfessions(Array.from(e.currentTarget.selectedOptions).map(o => o.value))}>
@@ -168,7 +179,7 @@ export default function Home() {
           <label>Max businesses per profession/city combo</label>
           <input type="number" min={1} max={20} value={maxPerCombo} onChange={e => setMaxPerCombo(Number(e.target.value))} />
         </div>
-        <button className="btn" disabled={running} onClick={startScan}>{running ? 'Creating job...' : 'Create Scan Job'}</button>
+        <button className="btn" disabled={running} onClick={startScan}>{running ? 'Creating job...' : 'Create scan job'}</button>
 
         <h3 style={{ marginTop: 22 }}>Reply classifier</h3>
         <div className="row"><label>Reply email</label><input placeholder="lead@email.com" value={replyEmail} onChange={e => setReplyEmail(e.target.value)} /></div>
@@ -178,8 +189,8 @@ export default function Home() {
 
       <section className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 14 }}>
-          <h2 style={{ margin: 0 }}>Lead Queue</h2>
-          <input style={{ maxWidth: 360 }} placeholder="filter leads..." value={query} onChange={e => setQuery(e.target.value)} />
+          <h2 style={{ margin: 0 }}>Lead board</h2>
+          <input style={{ maxWidth: 360 }} placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} />
         </div>
         <div className="tableWrap">
           <table>
