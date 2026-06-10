@@ -1,0 +1,36 @@
+{
+  "name": "trash-site-finder-3000",
+  "version": "1.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "worker": "tsx scripts/worker.ts",
+    "worker:once": "tsx scripts/worker.ts --once",
+    "local": "tsx scripts/local.ts",
+    "github:remote": "git remote remove origin 2>/dev/null || true; git remote add origin https://github.com/KeithPatrick5/Trash-Site-Finder-3000.git; git remote -v"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "latest",
+    "clsx": "latest",
+    "next": "latest",
+    "openai": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "resend": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "typescript": "latest",
+    "dotenv": "latest",
+    "tsx": "latest"
+  }
+}
