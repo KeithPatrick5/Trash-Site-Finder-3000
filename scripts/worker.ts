@@ -2,8 +2,8 @@ import dotenv from 'dotenv'
 dotenv.config({ path: '.env.local', quiet: true })
 dotenv.config({ quiet: true })
 import { claimNextScanJob, processOneScanBatch } from '../lib/jobs'
-import { getApprovedLeads, isSuppressed, updateLead } from '../lib/store'
-import { sendLeadEmail } from '../lib/email'
+import { getApprovedLeads, getApprovedReplyLeads, isSuppressed, updateLead } from '../lib/store'
+import { sendLeadEmail, sendReplyEmail } from '../lib/email'
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -51,11 +51,45 @@ async function sendApprovedEmailBatch() {
   return sent
 }
 
+
+async function sendApprovedReplyBatch() {
+  const enabled = boolEnv('WORKER_SEND_APPROVED_EMAILS', true)
+  if (!enabled) return 0
+
+  const dailyLimit = Number(process.env.MAX_DAILY_EMAILS || process.env.DAILY_SEND_LIMIT || 50)
+  if (sentThisRun >= dailyLimit) return 0
+  const limit = Math.min(Number(process.env.MAX_EMAIL_BATCH_SIZE || 5), dailyLimit - sentThisRun)
+  const leads = await getApprovedReplyLeads(limit)
+  let sent = 0
+
+  for (const lead of leads) {
+    if (!lead.email) {
+      await updateLead(lead.id, { status: 'skipped' })
+      continue
+    }
+    if (await isSuppressed(lead.email)) {
+      await updateLead(lead.id, { status: 'suppressed' })
+      continue
+    }
+    try {
+      await sendReplyEmail(lead)
+      sent++
+      sentThisRun++
+      console.log(`reply sent: ${lead.businessName} <${lead.email}>`)
+    } catch (e: any) {
+      console.warn(`reply send blocked for ${lead.businessName}: ${e?.message || e}`)
+      break
+    }
+  }
+
+  return sent
+}
+
 async function main() {
   const sleepMs = Number(process.env.WORKER_SLEEP_MS || 5000)
   const once = process.argv.includes('--once')
 
-  console.log('Trash Site Finder 3000 v2.2 local worker started')
+  console.log('Trash Site Finder 3000 v2.5 local worker started')
   console.log('Heavy scanning/email traffic runs from this Mac. Vercel is not required.')
 
   while (true) {
@@ -73,7 +107,8 @@ async function main() {
     }
 
     const sent = await sendApprovedEmailBatch()
-    if (!job && sent === 0) console.log(`idle - no queued jobs or approved emails. Sleeping ${sleepMs}ms.`)
+    const repliesSent = await sendApprovedReplyBatch()
+    if (!job && sent === 0 && repliesSent === 0) console.log(`idle - no queued jobs or approved emails. Sleeping ${sleepMs}ms.`)
     if (once) break
     await sleep(sleepMs)
   }

@@ -2,9 +2,9 @@ import { listLeads } from '@/lib/store'
 
 export async function GET() {
   const leads = await listLeads()
-  const headers = ['businessName','profession','city','website','email','phone','score','status','replyIntent','pagespeedMobile','forms','ctas','textLength','issues','subject','message','lastReply']
+  const headers = ['businessName','profession','city','website','email','phone','score','status','auditBucket','dealStage','paymentPreference','replyIntent','pagespeedMobile','forms','ctas','textLength','issues','subject','message','lastReply','replySubject','replyMessage']
   const rows = [headers.join(',')].concat(leads.map(l => headers.map(h => csv(valueFor(l, h))).join(',')))
-  return new Response(rows.join('\n'), { headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="trash-site-leads-v2.csv"' } })
+  return new Response(rows.join('\n'), { headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="trash-site-leads-v25.csv"' } })
 }
 
 function valueFor(l: any, h: string) {

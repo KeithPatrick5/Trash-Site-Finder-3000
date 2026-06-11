@@ -1,18 +1,11 @@
-node_modules
-.next
-.env*.local
-.env
-.vercel
-.DS_Store
-tsconfig.tsbuildinfo
-
-# generated / local-only junk
 node_modules/
 .next/
 out/
 build/
 dist/
-package-lock.json
-tsconfig.tsbuildinfo
 .env
 .env.*
+!.env.example
+package-lock.json
+tsconfig.tsbuildinfo
+.DS_Store

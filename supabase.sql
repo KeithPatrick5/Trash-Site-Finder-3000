@@ -20,6 +20,11 @@ create table if not exists leads (
   subject text,
   last_reply text,
   reply_intent text,
+  reply_subject text,
+  reply_message text,
+  audit_bucket text,
+  deal_stage text default 'none',
+  payment_preference text default 'unknown',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -61,3 +66,15 @@ create index if not exists leads_city_profession_idx on leads(city, profession);
 create unique index if not exists leads_unique_website on leads(website) where website is not null;
 create index if not exists leads_email_idx on leads(lower(email));
 create index if not exists replies_intent_idx on replies(intent);
+
+
+-- v2.4 migration helpers for existing databases
+alter table leads add column if not exists reply_subject text;
+alter table leads add column if not exists reply_message text;
+
+-- v2.5 lead factory / deal pipeline fields
+alter table leads add column if not exists audit_bucket text;
+alter table leads add column if not exists deal_stage text default 'none';
+alter table leads add column if not exists payment_preference text default 'unknown';
+create index if not exists leads_audit_bucket_idx on leads(audit_bucket);
+create index if not exists leads_deal_stage_idx on leads(deal_stage);

@@ -47,6 +47,14 @@ export async function getApprovedLeads(limit = 25) {
   return (data ?? []).map(fromRow)
 }
 
+export async function getApprovedReplyLeads(limit = 25) {
+  const sb = supabaseAdmin()
+  if (!sb) return demoLeads.filter(l => l.status === 'reply_approved').slice(0, limit)
+  const { data, error } = await sb.from('leads').select('*').eq('status', 'reply_approved').order('updated_at', { ascending: true }).limit(limit)
+  if (error) throw error
+  return (data ?? []).map(fromRow)
+}
+
 export async function upsertLeads(leads: Lead[]) {
   const sb = supabaseAdmin()
   if (!sb) {
@@ -201,6 +209,9 @@ export async function stats() {
     contacts: leads.filter(l => l.email || l.contactUrl).length,
     suppressed: suppressions.length,
     replies: replies.length,
+    siteOk: leads.filter(l => l.auditBucket === 'site_ok' || l.status === 'site_ok').length,
+    needsFix: leads.filter(l => l.auditBucket === 'needs_fix' || l.auditBucket === 'no_site' || l.auditBucket === 'dead_site' || l.status === 'needs_fix').length,
+    escrow: leads.filter(l => l.dealStage === 'escrow_requested' || l.status === 'escrow_requested' || l.status === 'upwork_sent').length,
   }
 }
 
@@ -227,6 +238,11 @@ function toRow(l: Lead) {
     subject: l.subject,
     last_reply: l.lastReply,
     reply_intent: l.replyIntent,
+    reply_subject: l.replySubject,
+    reply_message: l.replyMessage,
+    audit_bucket: l.auditBucket,
+    deal_stage: l.dealStage,
+    payment_preference: l.paymentPreference,
     created_at: l.createdAt,
     updated_at: l.updatedAt,
   }
@@ -254,6 +270,11 @@ function toRowPatch(p: Partial<Lead>) {
   if (p.subject !== undefined) row.subject = p.subject
   if (p.lastReply !== undefined) row.last_reply = p.lastReply
   if (p.replyIntent !== undefined) row.reply_intent = p.replyIntent
+  if (p.replySubject !== undefined) row.reply_subject = p.replySubject
+  if (p.replyMessage !== undefined) row.reply_message = p.replyMessage
+  if (p.auditBucket !== undefined) row.audit_bucket = p.auditBucket
+  if (p.dealStage !== undefined) row.deal_stage = p.dealStage
+  if (p.paymentPreference !== undefined) row.payment_preference = p.paymentPreference
   if (p.createdAt !== undefined) row.created_at = p.createdAt
   if (p.updatedAt !== undefined) row.updated_at = p.updatedAt
   return row
@@ -282,6 +303,11 @@ function fromRow(r: any): Lead {
     subject: r.subject ?? 'quick site thing',
     lastReply: r.last_reply ?? undefined,
     replyIntent: r.reply_intent ?? undefined,
+    replySubject: r.reply_subject ?? undefined,
+    replyMessage: r.reply_message ?? undefined,
+    auditBucket: r.audit_bucket ?? undefined,
+    dealStage: r.deal_stage ?? 'none',
+    paymentPreference: r.payment_preference ?? 'unknown',
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }

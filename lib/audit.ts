@@ -67,9 +67,18 @@ export async function auditLead(lead: Lead): Promise<Lead> {
     visualAudit,
     issues: deduped,
     score,
-    status: score >= 12 ? 'queued' : 'new',
+    status: bucketFromIssues(deduped, score, email ?? lead.email) === 'site_ok' ? 'site_ok' : bucketFromIssues(deduped, score, email ?? lead.email) === 'no_email' ? 'no_email' : 'needs_fix',
+    auditBucket: bucketFromIssues(deduped, score, email ?? lead.email),
     updatedAt: new Date().toISOString()
   }
+}
+
+
+function bucketFromIssues(issues: SiteIssue[], score: number, email?: string): Lead['auditBucket'] {
+  if (issues.some(i => i.code === 'no_website')) return email ? 'no_site' : 'no_email'
+  if (issues.some(i => i.code === 'load_failed')) return email ? 'dead_site' : 'no_email'
+  if (score >= 8) return email ? 'needs_fix' : 'no_email'
+  return 'site_ok'
 }
 
 function issue(code: string): SiteIssue {

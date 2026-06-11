@@ -1,4 +1,22 @@
-export type LeadStatus = 'new' | 'queued' | 'approved' | 'sent' | 'replied' | 'hot' | 'dead' | 'skipped' | 'suppressed'
+export type LeadStatus =
+  | 'new'
+  | 'queued'
+  | 'approved'
+  | 'sent'
+  | 'replied'
+  | 'reply_approved'
+  | 'hot'
+  | 'dead'
+  | 'skipped'
+  | 'suppressed'
+  | 'site_ok'
+  | 'needs_fix'
+  | 'no_email'
+  | 'escrow_requested'
+  | 'upwork_sent'
+  | 'preview_sent'
+  | 'won'
+  | 'lost'
 
 export type SiteIssue = {
   code: string
@@ -42,6 +60,11 @@ export type Lead = {
   subject: string
   lastReply?: string
   replyIntent?: 'hot' | 'neutral' | 'unsubscribe' | 'negative' | 'unknown'
+  replySubject?: string
+  replyMessage?: string
+  auditBucket?: 'site_ok' | 'needs_fix' | 'no_site' | 'dead_site' | 'no_email' | 'needs_review'
+  dealStage?: 'none' | 'interested' | 'preview_requested' | 'preview_sent' | 'direct_payment' | 'escrow_requested' | 'upwork_sent' | 'won' | 'lost'
+  paymentPreference?: 'unknown' | 'direct' | 'escrow' | 'upwork'
   createdAt: string
   updatedAt: string
 }

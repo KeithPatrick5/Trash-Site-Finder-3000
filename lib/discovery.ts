@@ -12,17 +12,37 @@ export type RawBusiness = {
   reviewCount?: number
 }
 
-export async function findBusinesses(profession: string, city: string, max = 5): Promise<RawBusiness[]> {
+export async function findBusinesses(profession: string, city: string, max = 100): Promise<RawBusiness[]> {
+  const limit = Math.max(1, Math.min(max, Number(process.env.MAX_BUSINESSES_PER_COMBO || max || 100)))
   if (process.env.GOOGLE_PLACES_API_KEY) {
-    const live = await googlePlacesTextSearch(profession, city, max)
+    const live = await googlePlacesWideSearch(profession, city, limit)
     if (live.length) return live
   }
-  return demoBusinesses(profession, city, max)
+  return demoBusinesses(profession, city, limit)
 }
 
-async function googlePlacesTextSearch(profession: string, city: string, max: number): Promise<RawBusiness[]> {
+async function googlePlacesWideSearch(profession: string, city: string, max: number): Promise<RawBusiness[]> {
+  const queries = unique([
+    `${profession} in ${city}`,
+    `${profession} near ${city}`,
+    `${city} ${profession}`,
+    `best ${profession} ${city}`,
+    `emergency ${profession} ${city}`,
+    `local ${profession} ${city}`
+  ])
+
+  const all: RawBusiness[] = []
+  for (const q of queries) {
+    if (all.length >= max) break
+    const chunk = await googlePlacesTextSearch(q, profession, city, Math.min(20, max - all.length))
+    all.push(...chunk)
+  }
+
+  return dedupeBusinesses(all).slice(0, max)
+}
+
+async function googlePlacesTextSearch(textQuery: string, profession: string, city: string, max: number): Promise<RawBusiness[]> {
   const key = process.env.GOOGLE_PLACES_API_KEY!
-  const textQuery = `${profession} in ${city}`
   const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
@@ -46,23 +66,35 @@ async function googlePlacesTextSearch(profession: string, city: string, max: num
   }))
 }
 
+function dedupeBusinesses(items: RawBusiness[]) {
+  const seen = new Set<string>()
+  const out: RawBusiness[] = []
+  for (const item of items) {
+    const key = `${item.website || ''}|${item.phone || ''}|${item.name}`.toLowerCase().replace(/\W+/g, '')
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
+  }
+  return out
+}
+
+function unique(items: string[]) {
+  return Array.from(new Set(items.map(s => s.trim()).filter(Boolean)))
+}
+
 function demoBusinesses(profession: string, city: string, max: number): RawBusiness[] {
   const slugCity = city.split(',')[0].replace(/\s+/g, '').toLowerCase()
   const clean = profession.replace(/\s+/g, '-').toLowerCase()
-  const samples = [
-    { suffix: 'Pros', domain: `https://${clean}-${slugCity}-pros.example.com` },
-    { suffix: 'Group', domain: `https://${slugCity}${clean}.example.org` },
-    { suffix: 'Co', domain: `https://www.${clean}${slugCity}.example.net` }
-  ]
-  return samples.slice(0, max).map(s => ({
-    name: `${city.split(',')[0]} ${title(profession)} ${s.suffix}`,
+  const suffixes = ['Pros','Group','Co','Crew','Works','247','Experts','Solutions','Repair','Services','Local','Team','HQ','Prime','Ace','Brothers','Collective','Plus','Now','Direct']
+  return suffixes.slice(0, max).map((suffix, i) => ({
+    name: `${city.split(',')[0]} ${title(profession)} ${suffix}`,
     profession,
     city,
     source: 'demo',
-    website: s.domain,
-    phone: '(555) 555-0133',
-    rating: 4.4,
-    reviewCount: 72
+    website: i % 7 === 0 ? undefined : `https://${clean}-${slugCity}-${suffix.toLowerCase()}.example.com`,
+    phone: `(555) 555-${String(1000 + i).slice(-4)}`,
+    rating: 4.1 + ((i % 8) / 10),
+    reviewCount: 8 + i * 7
   }))
 }
 
@@ -87,6 +119,9 @@ export function rawToLead(raw: RawBusiness): Lead {
     issues: [],
     score: 0,
     status: 'new',
+    auditBucket: 'needs_review',
+    dealStage: 'none',
+    paymentPreference: 'unknown',
     subject: 'quick site thing',
     message: '',
     createdAt: now,

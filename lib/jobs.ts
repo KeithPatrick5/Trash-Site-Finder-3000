@@ -9,7 +9,7 @@ import type { ScanJob } from './types'
 export const createScanJobSchema = z.object({
   professions: z.array(z.string()).min(1).max(500),
   cities: z.array(z.string()).min(1).max(500),
-  maxPerCombo: z.number().int().min(1).max(20).default(3),
+  maxPerCombo: z.number().int().min(1).max(500).default(100),
   sendMode: z.enum(['queue','send']).default('queue')
 })
 
@@ -30,7 +30,7 @@ export function publicJob(job: ScanJob) {
 
 export async function createScanJob(input: z.infer<typeof createScanJobSchema>) {
   const combos = input.professions.flatMap(profession => input.cities.map(city => ({ profession, city })))
-  const maxCombos = Number(process.env.MAX_SCAN_COMBOS || 2500)
+  const maxCombos = Number(process.env.MAX_SCAN_COMBOS || 10000)
   if (combos.length > maxCombos) throw new Error(`Too many combinations. Limit is ${maxCombos}.`)
   const now = nowIso()
   const job: ScanJob = {
