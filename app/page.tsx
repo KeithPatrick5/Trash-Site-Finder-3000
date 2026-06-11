@@ -6,6 +6,18 @@ import { professions } from '@/data/professions'
 import type { Lead, ReplyRecord } from '@/lib/types'
 
 type Job = { id: string; status: string; totalCombos: number; scannedCombos: number; createdLeads: number; remainingCombos: number; error?: string; workerLastSeenAt?: string; createdAt?: string; updatedAt?: string }
+
+function isRunnableJob(job: Job) {
+  return ['queued', 'running', 'paused'].includes(String(job.status).toLowerCase()) && job.remainingCombos > 0
+}
+
+function pickActiveJob(jobs: Job[], current: Job | null) {
+  if (current) {
+    const freshCurrent = jobs.find(j => j.id === current.id)
+    if (freshCurrent && isRunnableJob(freshCurrent)) return freshCurrent
+  }
+  return jobs.find(isRunnableJob) || jobs[0] || null
+}
 type Drafts = Record<string, { subject: string; message: string; replySubject: string; replyMessage: string }>
 type Tab = 'all' | 'site_ok' | 'needs_fix' | 'no_email' | 'approved' | 'sent' | 'replied' | 'hot' | 'escrow'
 
@@ -37,8 +49,9 @@ export default function Home() {
     const replyJson = await replyRes.json()
     const nextLeads = leadJson.leads ?? []
     setLeads(nextLeads)
-    setJobs(jobJson.jobs ?? [])
-    if (jobJson.jobs?.[0]) setJob(jobJson.jobs[0])
+    const nextJobs = jobJson.jobs ?? []
+    setJobs(nextJobs)
+    setJob(prev => pickActiveJob(nextJobs, prev))
     setReplies(replyJson.replies ?? [])
     setDrafts(prev => {
       const next = { ...prev }
@@ -217,7 +230,7 @@ export default function Home() {
     return inTab(l) && blob.includes(query.toLowerCase())
   }), [leads, query, tab])
 
-  const activeJob = job || jobs[0]
+  const activeJob = pickActiveJob(jobs, job)
   const progress = activeJob ? Math.round((activeJob.scannedCombos / Math.max(1, activeJob.totalCombos)) * 100) : 0
   const stats = {
     total: leads.length,
