@@ -45,6 +45,7 @@ export type Lead = {
   city: string
   source: string
   sourceUrl?: string
+  jobId?: string
   website?: string
   phone?: string
   email?: string

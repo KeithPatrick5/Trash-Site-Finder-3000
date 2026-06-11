@@ -239,6 +239,7 @@ function toRow(l: Lead) {
     city: l.city,
     source: l.source,
     source_url: l.sourceUrl,
+    job_id: l.jobId,
     website: l.website,
     phone: l.phone,
     email: l.email,
@@ -273,6 +274,7 @@ function toRowPatch(p: Partial<Lead>) {
   if (p.city !== undefined) row.city = p.city
   if (p.source !== undefined) row.source = p.source
   if (p.sourceUrl !== undefined) row.source_url = p.sourceUrl
+  if (p.jobId !== undefined) row.job_id = p.jobId
   if (p.website !== undefined) row.website = p.website
   if (p.phone !== undefined) row.phone = p.phone
   if (p.email !== undefined) row.email = p.email
@@ -308,6 +310,7 @@ function fromRow(r: any): Lead {
     city: r.city,
     source: r.source,
     sourceUrl: r.source_url ?? undefined,
+    jobId: r.job_id ?? undefined,
     website: r.website,
     phone: r.phone,
     email: r.email,

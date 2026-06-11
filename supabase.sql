@@ -5,6 +5,7 @@ create table if not exists leads (
   city text not null,
   source text not null,
   source_url text,
+  job_id text,
   website text,
   phone text,
   email text,
@@ -96,3 +97,7 @@ create index if not exists leads_deal_stage_idx on leads(deal_stage);
 alter table leads add column if not exists source_url text;
 alter table leads add column if not exists review_notes text default '';
 create index if not exists api_usage_period_idx on api_usage(provider, metric, period_key);
+
+-- v2.14 job tracking / email discovery
+alter table leads add column if not exists job_id text;
+create index if not exists leads_job_id_idx on leads(job_id);

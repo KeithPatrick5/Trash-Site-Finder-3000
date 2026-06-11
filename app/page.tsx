@@ -13,11 +13,21 @@ function isRunnableJob(job: Job) {
 }
 
 function pickActiveJob(jobs: Job[], current: Job | null) {
-  if (current) {
-    const freshCurrent = jobs.find(j => j.id === current.id)
-    if (freshCurrent && isRunnableJob(freshCurrent)) return freshCurrent
-  }
-  return jobs.find(isRunnableJob) || jobs[0] || null
+  if (!jobs.length) return null
+  const freshCurrent = current ? jobs.find(j => j.id === current.id) : null
+  if (freshCurrent && (freshCurrent.status === 'running' || freshCurrent.scannedCombos > 0 || freshCurrent.createdLeads > 0)) return freshCurrent
+
+  const byProgress = [...jobs].sort((a, b) => {
+    const ar = a.status === 'running' ? 1 : 0
+    const br = b.status === 'running' ? 1 : 0
+    if (ar !== br) return br - ar
+    const ap = (a.scannedCombos || 0) + (a.createdLeads || 0)
+    const bp = (b.scannedCombos || 0) + (b.createdLeads || 0)
+    if (ap !== bp) return bp - ap
+    return String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || ''))
+  })
+
+  return byProgress.find(j => j.status === 'running') || byProgress.find(j => j.scannedCombos > 0 || j.createdLeads > 0) || byProgress.find(isRunnableJob) || byProgress[0]
 }
 type Drafts = Record<string, { subject: string; message: string; replySubject: string; replyMessage: string }>
 type Tab = 'all' | 'site_ok' | 'needs_fix' | 'no_email' | 'approved' | 'sent' | 'replied' | 'hot' | 'escrow'
@@ -245,6 +255,8 @@ export default function Home() {
   }), [leads, query, tab])
 
   const activeJob = pickActiveJob(jobs, job)
+  const activeJobLeads = activeJob ? leads.filter(l => l.jobId === activeJob.id) : []
+  const activeJobLeadCount = activeJobLeads.length || activeJob?.createdLeads || 0
   const selectedCombos = selectedProfessions.length * selectedCities.length
   const estimatedBusinesses = selectedCombos * maxPerCombo
   const estimatedGoogleCalls = selectedCombos * Math.ceil(maxPerCombo / 20)
@@ -292,7 +304,7 @@ export default function Home() {
       <div className="card heroStatus">
         <h2>Queue control</h2>
         <p className="small statusText">{log}</p>
-        {activeJob && <><div className="progress"><span style={{ width: `${progress}%` }} /></div><div className="small">{activeJob.status.toUpperCase()} · combo {activeJob.scannedCombos} of {activeJob.totalCombos} · leads from this queue {activeJob.createdLeads} · left {activeJob.remainingCombos}{activeJob.error ? ` · ${activeJob.error}` : ''}</div></>}
+        {activeJob && <><div className="progress"><span style={{ width: `${progress}%` }} /></div><div className="small">{activeJob.status.toUpperCase()} · combo {activeJob.scannedCombos} of {activeJob.totalCombos} · leads from this queue {activeJobLeadCount} · left {activeJob.remainingCombos}{activeJob.error ? ` · ${activeJob.error}` : ''}</div></>}
         <div className="actions" style={{ marginTop: 12 }}>
           <button className="btn" onClick={() => jobAction('resume')} disabled={!activeJob}>Run / Resume</button>
           <button className="btn danger" onClick={() => jobAction('pause')} disabled={!activeJob}>Stop</button>
@@ -308,6 +320,7 @@ export default function Home() {
       <div className="stat"><b>{stats.siteOk}</b><span>site ok</span></div>
       <div className="stat"><b>{stats.needsFix}</b><span>needs fix</span></div>
       <div className="stat"><b>{stats.noEmail}</b><span>no email</span></div>
+      <div className="stat"><b>{leads.filter(l => l.email).length}</b><span>emails found</span></div>
       <div className="stat"><b>{stats.approved}</b><span>approved</span></div>
       <div className="stat"><b>{stats.hot}</b><span>hot</span></div>
       <div className="stat"><b>{stats.escrow}</b><span>escrow/upwork</span></div>
@@ -341,7 +354,7 @@ export default function Home() {
       </aside>
 
       <section className="card">
-        <div className="boardHead"><div><h2>Lead board</h2><div className="dataStatus">loaded {leads.length} · showing {visibleLeads.length} · refresh {lastRefresh}{loadError ? ` · ${loadError}` : ''}</div></div><input placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} /></div>
+        <div className="boardHead"><div><h2>Lead board</h2><div className="dataStatus">loaded {leads.length} · showing {visibleLeads.length} · emails {leads.filter(l => l.email).length} · refresh {lastRefresh}{loadError ? ` · ${loadError}` : ''}</div></div><input placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} /></div>
         <div className="tabs">{tabs.map(t => <button key={t.key} className={tab === t.key ? 'tab active' : 'tab'} onClick={() => setTab(t.key)}>{t.label} <b>{t.count}</b></button>)}</div>
         {showingFallback && <div className="notice">This tab/filter has no matches. Showing all loaded leads instead so nothing is hidden.</div>}
         {visibleLeads.length > 0 && <div className="quickList">

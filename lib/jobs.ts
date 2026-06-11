@@ -101,7 +101,7 @@ export async function processOneScanBatch(job: ScanJob) {
 
     try {
       const raw = await findBusinesses(combo.profession, combo.city, job.maxPerCombo)
-      const leads = await mapLimit(raw.map(rawToLead), auditConcurrency, async lead => {
+      const leads = await mapLimit(raw.map(rawToLead).map(lead => ({ ...lead, jobId: job.id })), auditConcurrency, async lead => {
         const audited = await auditLead(lead)
         const msg = await generateMessage(audited)
         return { ...audited, ...msg }

@@ -33,8 +33,9 @@ export async function auditLead(lead: Lead): Promise<Lead> {
       const res = await fetchWithTimeout(lead.website, 9000)
       if (!res.ok) issues.push(issue('load_failed'))
       html = await res.text()
-      email = extractEmail(html)
-      contactUrl = extractContactUrl(html, lead.website)
+      const discovery = await discoverContactInfo(html, lead.website)
+      email = discovery.email
+      contactUrl = discovery.contactUrl
       visualAudit = buildVisualAudit(html, lead.website)
 
       if (!email) issues.push(issue('no_email'))
@@ -154,25 +155,88 @@ function screenshotUrl(url: string) {
   return undefined
 }
 
+async function discoverContactInfo(homeHtml: string, base: string): Promise<{ email?: string; contactUrl?: string }> {
+  const homeEmail = extractEmail(homeHtml)
+  const links = extractCandidateContactUrls(homeHtml, base)
+  const contactUrl = links[0]
+  if (homeEmail) return { email: homeEmail, contactUrl }
+
+  const maxPages = Math.max(0, Number(process.env.MAX_EMAIL_DISCOVERY_PAGES || 3))
+  for (const url of links.slice(0, maxPages)) {
+    try {
+      const res = await fetchWithTimeout(url, 7000)
+      if (!res.ok) continue
+      const html = await res.text()
+      const found = extractEmail(html)
+      if (found) return { email: found, contactUrl: url }
+    } catch {}
+  }
+
+  return { contactUrl }
+}
+
 function extractEmail(html: string) {
-  const mailto = html.match(/mailto:([^"'?#>\s]+)/i)?.[1]
-  if (mailto) return mailto.trim()
-  const found = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
-  return found?.trim()
+  const decoded = decodeHtmlEntities(html)
+    .replace(/\s*\[at\]\s*|\s*\(at\)\s*|\s+at\s+/gi, '@')
+    .replace(/\s*\[dot\]\s*|\s*\(dot\)\s*|\s+dot\s+/gi, '.')
+
+  const mailto = decoded.match(/mailto:([^"'?#>\s]+)/i)?.[1]
+  const direct = mailto || decoded.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+  if (!direct) return undefined
+  const cleaned = direct.trim().replace(/^mailto:/i, '').replace(/[),.;]+$/g, '').toLowerCase()
+  if (/example\.com|domain\.com|yourdomain\.com|email\.com|sentry\.io|wixpress\.com|schema\.org/.test(cleaned)) return undefined
+  return cleaned
+}
+
+function extractCandidateContactUrls(html: string, base: string) {
+  const hrefs = [...html.matchAll(/href=["']([^"']+)["']/gi)].map(m => m[1])
+  const ranked = hrefs
+    .filter(h => !h.startsWith('#') && !/^mailto:|^tel:|javascript:/i.test(h))
+    .map(h => {
+      try { return new URL(h, base).toString() } catch { return '' }
+    })
+    .filter(Boolean)
+    .filter(url => sameHostOrSubPath(url, base))
+    .map(url => ({ url, score: contactScore(url) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(x => x.url)
+  return Array.from(new Set(ranked))
 }
 
 function extractContactUrl(html: string, base: string) {
-  const hrefs = [...html.matchAll(/href=["']([^"']+)["']/gi)].map(m => m[1])
-  const match = hrefs.find(h => /contact|quote|estimate|book|appointment|schedule/i.test(h))
-  if (!match) return undefined
-  try { return new URL(match, base).toString() } catch { return undefined }
+  return extractCandidateContactUrls(html, base)[0]
+}
+
+function contactScore(url: string) {
+  const u = url.toLowerCase()
+  if (/contact/.test(u)) return 10
+  if (/quote|estimate|book|appointment|schedule/.test(u)) return 8
+  if (/about|company|team/.test(u)) return 5
+  if (/service|location/.test(u)) return 2
+  return 0
+}
+
+function sameHostOrSubPath(url: string, base: string) {
+  try {
+    const a = new URL(url)
+    const b = new URL(base)
+    return a.hostname === b.hostname || a.hostname.endsWith(`.${b.hostname}`)
+  } catch { return false }
+}
+
+function decodeHtmlEntities(text: string) {
+  return text
+    .replace(/&#64;|&commat;/gi, '@')
+    .replace(/&#46;|&period;/gi, '.')
+    .replace(/&amp;/gi, '&')
 }
 
 async function fetchWithTimeout(url: string, ms: number) {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), ms)
   try {
-    return await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'TrashSiteFinder3000/2.0 site audit bot' } })
+    return await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrashSiteFinder3000/2.14; local lead audit)' } })
   } finally {
     clearTimeout(timeout)
   }
