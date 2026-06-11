@@ -39,42 +39,53 @@ export default function Home() {
   const [drafts, setDrafts] = useState<Drafts>({})
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
   const [usage, setUsage] = useState<Usage | null>(null)
+  const [lastRefresh, setLastRefresh] = useState('never')
+  const [loadError, setLoadError] = useState('')
 
   async function load() {
-    const [leadRes, jobRes, replyRes] = await Promise.all([
-      fetch('/api/leads', { cache: 'no-store' }),
-      fetch('/api/jobs', { cache: 'no-store' }),
-      fetch('/api/replies', { cache: 'no-store' })
-    ])
-    const leadJson = await leadRes.json()
-    const jobJson = await jobRes.json()
-    const replyJson = await replyRes.json()
-    const nextLeads = leadJson.leads ?? []
-    setLeads(nextLeads)
-    const nextJobs = jobJson.jobs ?? []
-    setJobs(nextJobs)
-    setUsage(jobJson.usage ?? null)
-    setJob(prev => pickActiveJob(nextJobs, prev))
-    setReplies(replyJson.replies ?? [])
-    setDrafts(prev => {
-      const next = { ...prev }
-      for (const lead of nextLeads) {
-        if (!next[lead.id]) {
-          next[lead.id] = {
-            subject: lead.subject || 'site is doing side quests',
-            message: lead.message || '',
-            replySubject: lead.replySubject || `Re: ${lead.subject || 'quick site thing'}`,
-            replyMessage: lead.replyMessage || ''
+    try {
+      const [leadRes, jobRes, replyRes] = await Promise.all([
+        fetch('/api/leads', { cache: 'no-store' }),
+        fetch('/api/jobs', { cache: 'no-store' }),
+        fetch('/api/replies', { cache: 'no-store' })
+      ])
+      const leadJson = await leadRes.json()
+      const jobJson = await jobRes.json()
+      const replyJson = await replyRes.json()
+      if (!leadRes.ok) throw new Error(leadJson.error || 'lead load failed')
+      if (!jobRes.ok) throw new Error(jobJson.error || 'job load failed')
+      if (!replyRes.ok) throw new Error(replyJson.error || 'reply load failed')
+      const nextLeads = Array.isArray(leadJson.leads) ? leadJson.leads : []
+      setLeads(nextLeads)
+      const nextJobs = Array.isArray(jobJson.jobs) ? jobJson.jobs : []
+      setJobs(nextJobs)
+      setUsage(jobJson.usage ?? null)
+      setJob(prev => pickActiveJob(nextJobs, prev))
+      setReplies(Array.isArray(replyJson.replies) ? replyJson.replies : [])
+      setLastRefresh(new Date().toLocaleTimeString())
+      setLoadError('')
+      setDrafts(prev => {
+        const next = { ...prev }
+        for (const lead of nextLeads) {
+          if (!next[lead.id]) {
+            next[lead.id] = {
+              subject: lead.subject || 'site is doing side quests',
+              message: lead.message || '',
+              replySubject: lead.replySubject || `Re: ${lead.subject || 'quick site thing'}`,
+              replyMessage: lead.replyMessage || ''
+            }
           }
         }
-      }
-      return next
-    })
-    setReviewNotes(prev => {
-      const next = { ...prev }
-      for (const lead of nextLeads) if (next[lead.id] === undefined) next[lead.id] = lead.reviewNotes || ''
-      return next
-    })
+        return next
+      })
+      setReviewNotes(prev => {
+        const next = { ...prev }
+        for (const lead of nextLeads) if (next[lead.id] === undefined) next[lead.id] = lead.reviewNotes || ''
+        return next
+      })
+    } catch (e: any) {
+      setLoadError(e?.message || 'load failed')
+    }
   }
 
   useEffect(() => { load() }, [])
@@ -263,6 +274,9 @@ export default function Home() {
     { key: 'escrow', label: 'Escrow / Upwork', count: stats.escrow }
   ]
 
+  const visibleLeads = filtered.length > 0 ? filtered : leads
+  const showingFallback = filtered.length === 0 && leads.length > 0
+
   return <main className="shell">
     <header className="topbar">
       <div className="brand"><div className="mark">TSF</div><div><div className="brandTitle">Trash Site Finder 3000</div><div className="brandSub">Lead review</div></div></div>
@@ -327,10 +341,20 @@ export default function Home() {
       </aside>
 
       <section className="card">
-        <div className="boardHead"><h2>Lead board</h2><input placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} /></div>
+        <div className="boardHead"><div><h2>Lead board</h2><div className="dataStatus">Loaded {leads.length} leads · showing {visibleLeads.length} · refreshed {lastRefresh}{loadError ? ` · error: ${loadError}` : ''}</div></div><input placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} /></div>
         <div className="tabs">{tabs.map(t => <button key={t.key} className={tab === t.key ? 'tab active' : 'tab'} onClick={() => setTab(t.key)}>{t.label} <b>{t.count}</b></button>)}</div>
+        {showingFallback && <div className="notice">This tab/filter has no matches. Showing all loaded leads instead so nothing is hidden.</div>}
+        {visibleLeads.length > 0 && <div className="quickList">
+          {visibleLeads.slice(0, 80).map(lead => <div className="quickRow" key={`quick-${lead.id}`}>
+            <b>{lead.businessName}</b>
+            <span>{lead.profession} · {lead.city}</span>
+            <span>{lead.auditBucket || lead.status} · {lead.score}</span>
+            {lead.website ? <a href={safeUrl(lead.website)} target="_blank" rel="noreferrer">site</a> : <span>no site</span>}
+            {lead.sourceUrl ? <a href={safeUrl(lead.sourceUrl)} target="_blank" rel="noreferrer">source</a> : <span>{lead.source || 'source'}</span>}
+          </div>)}
+        </div>}
         <div className="leadGrid">
-          {filtered.map(lead => {
+          {visibleLeads.map(lead => {
             const d = drafts[lead.id] || { subject: lead.subject, message: lead.message, replySubject: lead.replySubject || `Re: ${lead.subject}`, replyMessage: lead.replyMessage || '' }
             return <article className="leadCard" key={lead.id}>
               <div className="leadTop"><div><h3>{lead.businessName}</h3><p>{lead.profession} · {lead.city}</p></div><span className={`badge ${lead.status === 'hot' || lead.dealStage === 'interested' ? 'hot' : lead.auditBucket === 'site_ok' ? 'good' : 'warn'}`}>{lead.auditBucket || lead.status} · {lead.score}</span></div>
@@ -369,7 +393,7 @@ export default function Home() {
               <div className="actions footActions"><button className="btn secondary" onClick={() => mark(lead.id, 'hot', { dealStage: 'interested' })}>Yes / Hot</button><button className="btn secondary" onClick={() => mark(lead.id, 'preview_sent', { dealStage: 'preview_sent' })}>Preview sent</button><button className="btn secondary" onClick={() => mark(lead.id, 'upwork_sent', { dealStage: 'upwork_sent', paymentPreference: 'upwork' })}>Upwork sent</button><button className="btn secondary" onClick={() => mark(lead.id, 'won', { dealStage: 'won' })}>Won</button><button className="btn secondary" onClick={() => mark(lead.id, 'dead', { dealStage: 'lost' })}>No / Dead</button></div>
             </article>
           })}
-          {filtered.length === 0 && <div className="notice">No leads in this bucket.</div>}
+          {leads.length === 0 && <div className="notice">No leads loaded yet.</div>}
         </div>
       </section>
     </section>
