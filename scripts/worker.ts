@@ -89,7 +89,7 @@ async function main() {
   const sleepMs = Number(process.env.WORKER_SLEEP_MS || 5000)
   const once = process.argv.includes('--once')
 
-  console.log('Trash Site Finder 3000 v2.12 local worker started')
+  console.log('Trash Site Finder 3000 v2.13 local worker started')
   console.log('Worker ready. Processing running/queued jobs only within your env caps.')
 
   let idleLoops = 0

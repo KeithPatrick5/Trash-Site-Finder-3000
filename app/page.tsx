@@ -286,13 +286,13 @@ export default function Home() {
     <section className="hero">
       <div className="heroMain">
         <div className="kicker">Scan → review → reply</div>
-        <h1>Find broken sites.</h1>
-        <p className="sub">Open the site. Write the note. Approve the email.</p>
+        <h1>Review bad sites.</h1>
+        <p className="sub">Review leads. Open sites. Approve emails.</p>
       </div>
       <div className="card heroStatus">
         <h2>Queue control</h2>
         <p className="small statusText">{log}</p>
-        {activeJob && <><div className="progress"><span style={{ width: `${progress}%` }} /></div><div className="small">{activeJob.status.toUpperCase()} · {activeJob.scannedCombos}/{activeJob.totalCombos} combos · {activeJob.createdLeads} businesses · {activeJob.remainingCombos} left</div></>}
+        {activeJob && <><div className="progress"><span style={{ width: `${progress}%` }} /></div><div className="small">{activeJob.status.toUpperCase()} · combo {activeJob.scannedCombos} of {activeJob.totalCombos} · leads from this queue {activeJob.createdLeads} · left {activeJob.remainingCombos}{activeJob.error ? ` · ${activeJob.error}` : ''}</div></>}
         <div className="actions" style={{ marginTop: 12 }}>
           <button className="btn" onClick={() => jobAction('resume')} disabled={!activeJob}>Run / Resume</button>
           <button className="btn danger" onClick={() => jobAction('pause')} disabled={!activeJob}>Stop</button>
@@ -341,7 +341,7 @@ export default function Home() {
       </aside>
 
       <section className="card">
-        <div className="boardHead"><div><h2>Lead board</h2><div className="dataStatus">Loaded {leads.length} leads · showing {visibleLeads.length} · refreshed {lastRefresh}{loadError ? ` · error: ${loadError}` : ''}</div></div><input placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} /></div>
+        <div className="boardHead"><div><h2>Lead board</h2><div className="dataStatus">loaded {leads.length} · showing {visibleLeads.length} · refresh {lastRefresh}{loadError ? ` · ${loadError}` : ''}</div></div><input placeholder="filter leads" value={query} onChange={e => setQuery(e.target.value)} /></div>
         <div className="tabs">{tabs.map(t => <button key={t.key} className={tab === t.key ? 'tab active' : 'tab'} onClick={() => setTab(t.key)}>{t.label} <b>{t.count}</b></button>)}</div>
         {showingFallback && <div className="notice">This tab/filter has no matches. Showing all loaded leads instead so nothing is hidden.</div>}
         {visibleLeads.length > 0 && <div className="quickList">

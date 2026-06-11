@@ -24,17 +24,22 @@ export async function findBusinesses(profession: string, city: string, max = 100
 }
 
 async function googlePlacesWideSearch(profession: string, city: string, max: number): Promise<RawBusiness[]> {
-  const queries = unique([
-    `${profession} in ${city}`,
+  const baseQuery = `${profession} in ${city}`
+  const all = await googlePlacesTextSearch(baseQuery, profession, city, max)
+
+  // Cost gate: extra query variations are OFF unless explicitly enabled.
+  // This prevents one combo from quietly becoming 6+ billable Google calls.
+  const variationsEnabled = ['1', 'true', 'yes', 'on'].includes(String(process.env.ENABLE_GOOGLE_QUERY_VARIATIONS || 'false').toLowerCase())
+  if (!variationsEnabled || all.length >= max) return dedupeBusinesses(all).slice(0, max)
+
+  const variations = unique([
     `${profession} near ${city}`,
     `${city} ${profession}`,
     `best ${profession} ${city}`,
-    `emergency ${profession} ${city}`,
     `local ${profession} ${city}`
   ])
 
-  const all: RawBusiness[] = []
-  for (const q of queries) {
+  for (const q of variations) {
     if (all.length >= max) break
     const chunk = await googlePlacesTextSearch(q, profession, city, max - all.length)
     all.push(...chunk)
