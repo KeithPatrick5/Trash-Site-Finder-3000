@@ -222,6 +222,7 @@ function toRow(l: Lead) {
     profession: l.profession,
     city: l.city,
     source: l.source,
+    source_url: l.sourceUrl,
     website: l.website,
     phone: l.phone,
     email: l.email,
@@ -243,6 +244,7 @@ function toRow(l: Lead) {
     audit_bucket: l.auditBucket,
     deal_stage: l.dealStage,
     payment_preference: l.paymentPreference,
+    review_notes: l.reviewNotes,
     created_at: l.createdAt,
     updated_at: l.updatedAt,
   }
@@ -254,6 +256,7 @@ function toRowPatch(p: Partial<Lead>) {
   if (p.profession !== undefined) row.profession = p.profession
   if (p.city !== undefined) row.city = p.city
   if (p.source !== undefined) row.source = p.source
+  if (p.sourceUrl !== undefined) row.source_url = p.sourceUrl
   if (p.website !== undefined) row.website = p.website
   if (p.phone !== undefined) row.phone = p.phone
   if (p.email !== undefined) row.email = p.email
@@ -275,6 +278,7 @@ function toRowPatch(p: Partial<Lead>) {
   if (p.auditBucket !== undefined) row.audit_bucket = p.auditBucket
   if (p.dealStage !== undefined) row.deal_stage = p.dealStage
   if (p.paymentPreference !== undefined) row.payment_preference = p.paymentPreference
+  if (p.reviewNotes !== undefined) row.review_notes = p.reviewNotes
   if (p.createdAt !== undefined) row.created_at = p.createdAt
   if (p.updatedAt !== undefined) row.updated_at = p.updatedAt
   return row
@@ -287,6 +291,7 @@ function fromRow(r: any): Lead {
     profession: r.profession,
     city: r.city,
     source: r.source,
+    sourceUrl: r.source_url ?? undefined,
     website: r.website,
     phone: r.phone,
     email: r.email,
@@ -308,6 +313,7 @@ function fromRow(r: any): Lead {
     auditBucket: r.audit_bucket ?? undefined,
     dealStage: r.deal_stage ?? 'none',
     paymentPreference: r.payment_preference ?? 'unknown',
+    reviewNotes: r.review_notes ?? '',
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }

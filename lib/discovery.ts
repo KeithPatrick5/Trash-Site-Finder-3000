@@ -1,11 +1,13 @@
 import { Lead } from './types'
 import { id, nowIso } from './utils'
+import { canUseGoogleTextSearch, recordGoogleTextSearchCall } from './usage'
 
 export type RawBusiness = {
   name: string
   profession: string
   city: string
   source: string
+  sourceUrl?: string
   website?: string
   phone?: string
   rating?: number
@@ -42,7 +44,15 @@ async function googlePlacesWideSearch(profession: string, city: string, max: num
 }
 
 async function googlePlacesTextSearch(textQuery: string, profession: string, city: string, max: number): Promise<RawBusiness[]> {
+  const pageSize = Math.max(1, Math.min(20, Number(process.env.PLACES_PAGE_SIZE || 20)))
+  const allowed = await canUseGoogleTextSearch()
+  if (!allowed.ok) {
+    console.warn(`Google Places cap reached: ${allowed.reason}`)
+    return []
+  }
+
   const key = process.env.GOOGLE_PLACES_API_KEY!
+  await recordGoogleTextSearchCall(textQuery)
   const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
@@ -50,20 +60,24 @@ async function googlePlacesTextSearch(textQuery: string, profession: string, cit
       'X-Goog-Api-Key': key,
       'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri'
     },
-    body: JSON.stringify({ textQuery, maxResultCount: Math.min(max, 20) })
+    body: JSON.stringify({ textQuery, maxResultCount: Math.min(max, pageSize) })
   })
   if (!res.ok) return []
   const json = await res.json()
-  return (json.places ?? []).slice(0, max).map((p: any) => ({
-    name: p.displayName?.text ?? 'Unknown business',
-    profession,
-    city,
-    source: 'google_places',
-    website: p.websiteUri,
-    phone: p.nationalPhoneNumber,
-    rating: p.rating,
-    reviewCount: p.userRatingCount,
-  }))
+  return (json.places ?? []).slice(0, max).map((p: any) => {
+    const name = p.displayName?.text ?? 'Unknown business'
+    return {
+      name,
+      profession,
+      city,
+      source: 'google_places',
+      sourceUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${city}`)}`,
+      website: p.websiteUri,
+      phone: p.nationalPhoneNumber,
+      rating: p.rating,
+      reviewCount: p.userRatingCount,
+    }
+  })
 }
 
 function dedupeBusinesses(items: RawBusiness[]) {
@@ -91,6 +105,7 @@ function demoBusinesses(profession: string, city: string, max: number): RawBusin
     profession,
     city,
     source: 'demo',
+    sourceUrl: `https://www.google.com/search?q=${encodeURIComponent(`${profession} ${city} ${suffix}`)}`,
     website: i % 7 === 0 ? undefined : `https://${clean}-${slugCity}-${suffix.toLowerCase()}.example.com`,
     phone: `(555) 555-${String(1000 + i).slice(-4)}`,
     rating: 4.1 + ((i % 8) / 10),
@@ -110,6 +125,7 @@ export function rawToLead(raw: RawBusiness): Lead {
     profession: raw.profession,
     city: raw.city,
     source: raw.source,
+    sourceUrl: raw.sourceUrl,
     website: raw.website,
     phone: raw.phone,
     rating: raw.rating,
@@ -122,6 +138,7 @@ export function rawToLead(raw: RawBusiness): Lead {
     auditBucket: 'needs_review',
     dealStage: 'none',
     paymentPreference: 'unknown',
+    reviewNotes: '',
     subject: 'quick site thing',
     message: '',
     createdAt: now,

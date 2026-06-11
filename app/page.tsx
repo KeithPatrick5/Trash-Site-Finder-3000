@@ -24,6 +24,7 @@ export default function Home() {
   const [replyText, setReplyText] = useState('')
   const [replyEmail, setReplyEmail] = useState('')
   const [drafts, setDrafts] = useState<Drafts>({})
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
 
   async function load() {
     const [leadRes, jobRes, replyRes] = await Promise.all([
@@ -53,6 +54,11 @@ export default function Home() {
       }
       return next
     })
+    setReviewNotes(prev => {
+      const next = { ...prev }
+      for (const lead of nextLeads) if (next[lead.id] === undefined) next[lead.id] = lead.reviewNotes || ''
+      return next
+    })
   }
 
   useEffect(() => { load() }, [])
@@ -63,6 +69,22 @@ export default function Home() {
 
   function updateDraft(id: string, patch: Partial<Drafts[string]>) {
     setDrafts(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }))
+  }
+
+  function safeUrl(url?: string) {
+    if (!url) return ''
+    return /^https?:\/\//i.test(url) ? url : `https://${url}`
+  }
+
+  async function saveReviewNotes(lead: Lead) {
+    const notes = reviewNotes[lead.id] || ''
+    await fetch('/api/leads', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: lead.id, reviewNotes: notes })
+    })
+    setLog('Review notes saved.')
+    await load()
   }
 
   async function createFullQueue() {
@@ -292,7 +314,17 @@ export default function Home() {
             return <article className="leadCard" key={lead.id}>
               <div className="leadTop"><div><h3>{lead.businessName}</h3><p>{lead.profession} · {lead.city}</p></div><span className={`badge ${lead.status === 'hot' || lead.dealStage === 'interested' ? 'hot' : lead.auditBucket === 'site_ok' ? 'good' : 'warn'}`}>{lead.auditBucket || lead.status} · {lead.score}</span></div>
               <div className="problemList">{lead.issues.slice(0, 5).map(i => <span className="badge warn" key={i.code}>{i.label}</span>)}{lead.issues.length === 0 && <span className="badge good">no major issue stored</span>}</div>
-              <div className="small contactLine">{lead.website ? <a href={lead.website} target="_blank">site</a> : 'no site'} · {lead.email || 'no email'} · {lead.phone || 'no phone'} · stage: {lead.dealStage || 'none'}</div>
+              <div className="reviewBar">
+                <div className="linkActions">
+                  {lead.website ? <a className="btn secondary" href={safeUrl(lead.website)} target="_blank" rel="noreferrer">Open website</a> : <span className="badge warn">No website found</span>}
+                  {lead.sourceUrl ? <a className="btn secondary" href={safeUrl(lead.sourceUrl)} target="_blank" rel="noreferrer">Open source</a> : null}
+                  {lead.website ? <button className="btn secondary" onClick={() => copy(safeUrl(lead.website))}>Copy site URL</button> : null}
+                </div>
+                <div className="small contactLine">{lead.email || 'no email'} · {lead.phone || 'no phone'} · source: {lead.source} · stage: {lead.dealStage || 'none'}</div>
+                <label>Review notes / why this site sucks</label>
+                <textarea className="reviewNotes" value={reviewNotes[lead.id] || ''} placeholder="Open the site, write what you actually see: broken mobile, slow load, no quote button, ugly homepage, no services, bad trust, etc." onChange={e => setReviewNotes(prev => ({ ...prev, [lead.id]: e.target.value }))} />
+                <div className="actions"><button className="btn secondary" onClick={() => saveReviewNotes(lead)}>Save notes</button></div>
+              </div>
 
               {(lead.auditBucket !== 'site_ok' && lead.email) && <div className="emailEditor">
                 <label>Initial email subject</label>

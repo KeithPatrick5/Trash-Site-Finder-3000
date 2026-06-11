@@ -4,6 +4,7 @@ create table if not exists leads (
   profession text not null,
   city text not null,
   source text not null,
+  source_url text,
   website text,
   phone text,
   email text,
@@ -25,6 +26,7 @@ create table if not exists leads (
   audit_bucket text,
   deal_stage text default 'none',
   payment_preference text default 'unknown',
+  review_notes text default '',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -41,6 +43,17 @@ create table if not exists scan_jobs (
   worker_last_seen_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
+);
+
+
+
+create table if not exists api_usage (
+  provider text not null,
+  metric text not null,
+  period_key text not null,
+  count integer not null default 0,
+  updated_at timestamptz default now(),
+  primary key (provider, metric, period_key)
 );
 
 create table if not exists email_suppressions (
@@ -78,3 +91,8 @@ alter table leads add column if not exists deal_stage text default 'none';
 alter table leads add column if not exists payment_preference text default 'unknown';
 create index if not exists leads_audit_bucket_idx on leads(audit_bucket);
 create index if not exists leads_deal_stage_idx on leads(deal_stage);
+
+-- v2.7 review links / usage caps
+alter table leads add column if not exists source_url text;
+alter table leads add column if not exists review_notes text default '';
+create index if not exists api_usage_period_idx on api_usage(provider, metric, period_key);

@@ -1,4 +1,4 @@
-# Trash Site Finder 3000 — v2.5 local lead factory
+# Trash Site Finder 3000 — local lead factory
 
 Local-only prospecting dashboard. No Vercel required.
 
@@ -14,35 +14,39 @@ GitHub:
 https://github.com/KeithPatrick5/Trash-Site-Finder-3000
 ```
 
-## What v2.5 does
+## What it does
 
-- Builds a saved queue of every profession × every city.
-- Runs from the saved cursor so you can stop today and resume tomorrow.
-- Pulls as many businesses as the configured source returns, not just 2.
+- Builds a saved profession × city queue.
+- Runs from the saved cursor so stop/resume works.
+- Uses Google Places with daily/monthly caps.
 - Stores every business found.
-- Sorts leads into buckets: site ok, needs fix, no site/dead site, no email, approved, emailed, replied, hot, escrow/Upwork.
+- Shows clickable website/source links for review.
+- Lets you write review notes on why the site sucks.
+- Sorts leads into site ok, needs fix, no email, approved, emailed, replied, hot, escrow/Upwork.
 - Shows editable email drafts before anything sends.
-- Shows inbound replies and lets you reply from the dashboard.
-- Adds an escrow/Upwork handoff stage for clients who do not want direct payment.
+- Keeps email/screenshots/OpenAI off unless enabled.
 
-## Install
+## Cost-safe defaults
 
-```bash
-cd /Users/admin/Desktop/tsf3000
-npm install --no-package-lock
-cp .env.example .env.local
-npm run local
+Target Google Places cap:
+
+```env
+GOOGLE_TEXT_SEARCH_CALLS_PER_DAY=150
+GOOGLE_TEXT_SEARCH_CALLS_PER_MONTH=4500
+PLACES_PAGE_SIZE=20
 ```
 
-Open:
+That is up to 3,000 raw businesses/day or 90,000/month if Google returns 20 results per call.
 
-```text
-http://localhost:3000
+Still off by default:
+
+```env
+ENABLE_SCREENSHOTS=false
+MAX_DAILY_SCREENSHOTS=0
+MAX_DAILY_EMAILS=0
+OPENAI_API_KEY=
+RESEND_API_KEY=
 ```
-
-## Supabase
-
-Run `supabase.sql` in Supabase before using the dashboard. It creates/migrates the needed tables.
 
 ## Commands
 
@@ -53,16 +57,17 @@ npm run worker      # worker only
 npm run worker:once # one worker tick
 ```
 
-## GitHub remote
+Open:
 
-```bash
-npm run github:remote
-git add .
-git commit -m "Build v2.5 lead factory"
-git push
+```text
+http://localhost:3000
 ```
 
-Do not commit generated junk:
+## Supabase
+
+Run `supabase.sql` in Supabase before using the dashboard. Re-run it after updates; it uses safe `create table if not exists` / `alter table if not exists` lines.
+
+Do not commit generated/local junk:
 
 ```text
 node_modules/

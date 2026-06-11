@@ -44,6 +44,7 @@ export type Lead = {
   profession: string
   city: string
   source: string
+  sourceUrl?: string
   website?: string
   phone?: string
   email?: string
@@ -65,6 +66,7 @@ export type Lead = {
   auditBucket?: 'site_ok' | 'needs_fix' | 'no_site' | 'dead_site' | 'no_email' | 'needs_review'
   dealStage?: 'none' | 'interested' | 'preview_requested' | 'preview_sent' | 'direct_payment' | 'escrow_requested' | 'upwork_sent' | 'won' | 'lost'
   paymentPreference?: 'unknown' | 'direct' | 'escrow' | 'upwork'
+  reviewNotes?: string
   createdAt: string
   updatedAt: string
 }

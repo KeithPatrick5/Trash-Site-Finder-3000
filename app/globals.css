@@ -123,3 +123,7 @@ code { color: var(--gold); }
   h1 { font-size: 32px; }
   .stats { grid-template-columns: repeat(2,1fr); }
 }
+
+.reviewBar { border: 1px solid var(--line); background: rgba(17,19,25,.55); padding: 10px; margin: 9px 0 10px; display: grid; gap: 8px; }
+.linkActions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.reviewNotes { min-height: 76px; }
