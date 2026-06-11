@@ -172,15 +172,31 @@ export async function listScanJobs(limit = 25) {
 
 export async function getNextQueuedScanJob() {
   const sb = supabaseAdmin()
-  if (!sb) return demoJobs.find(j => j.status === 'queued' || j.status === 'running') ?? null
+  if (!sb) return demoJobs.find(j => normalizeStatus(j.status) === 'running') ?? null
+
   const { data, error } = await sb.from('scan_jobs')
     .select('*')
-    .in('status', ['queued', 'running'])
     .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+    .limit(50)
+
   if (error) throw error
-  return data ? fromJobRow(data) : null
+  const row = (data ?? []).find(r => normalizeStatus(r.status) === 'running')
+  return row ? fromJobRow(row) : null
+}
+
+export async function latestScanJobSummary(limit = 5) {
+  const sb = supabaseAdmin()
+  if (!sb) return demoJobs.slice(0, limit).map(j => `${j.id}:${j.status}:${j.cursor}/${j.combos.length}`)
+  const { data, error } = await sb.from('scan_jobs')
+    .select('id,status,cursor,combos,updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data ?? []).map(r => `${r.id}:${r.status}:${r.cursor}/${Array.isArray(r.combos) ? r.combos.length : 0}`)
+}
+
+function normalizeStatus(status?: string | null) {
+  return String(status || '').trim().toLowerCase()
 }
 
 export async function updateScanJob(jobId: string, patch: Partial<ScanJob>) {

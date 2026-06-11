@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { findBusinesses, rawToLead } from './discovery'
 import { auditLead } from './audit'
 import { generateMessage } from './messaging'
-import { createScanJob as persistScanJob, getNextQueuedScanJob, getScanJob as getPersistedScanJob, listScanJobs as listPersistedScanJobs, updateScanJob, upsertLeads } from './store'
+import { createScanJob as persistScanJob, getNextQueuedScanJob, getScanJob as getPersistedScanJob, latestScanJobSummary, listScanJobs as listPersistedScanJobs, updateScanJob, upsertLeads } from './store'
 import { id, nowIso, mapLimit } from './utils'
 import type { ScanJob } from './types'
 
@@ -63,6 +63,10 @@ export async function claimNextScanJob() {
   return updateScanJob(job.id, { status: 'running', workerLastSeenAt: nowIso(), error: undefined })
 }
 
+export async function debugLatestScanJobs() {
+  return latestScanJobSummary(5)
+}
+
 export async function processOneScanBatch(job: ScanJob) {
   if (job.status === 'done' || job.status === 'failed' || job.status === 'paused') return publicJob(job)
 
@@ -92,7 +96,7 @@ export async function processOneScanBatch(job: ScanJob) {
     await upsertLeads(leads)
 
     const nextCursor = job.cursor + slice.length
-    const status = nextCursor >= job.combos.length ? 'done' : 'queued'
+    const status = nextCursor >= job.combos.length ? 'done' : 'running'
     const updated = await updateScanJob(job.id, {
       cursor: nextCursor,
       scannedCombos: job.scannedCombos + slice.length,

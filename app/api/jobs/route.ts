@@ -18,7 +18,7 @@ export async function PATCH(req: Request) {
   const patch = action === 'pause'
     ? { status: 'paused' as const }
     : action === 'resume'
-      ? { status: 'queued' as const, error: undefined }
+      ? { status: 'running' as const, error: undefined }
       : { status: 'queued' as const, cursor: 0, scannedCombos: 0, createdLeads: 0, error: undefined }
   const job = await updateScanJob(id, patch)
   return NextResponse.json({ ok: true, job })

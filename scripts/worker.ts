@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
 dotenv.config({ path: '.env.local', quiet: true })
 dotenv.config({ quiet: true })
-import { claimNextScanJob, processOneScanBatch } from '../lib/jobs'
+import { claimNextScanJob, debugLatestScanJobs, processOneScanBatch } from '../lib/jobs'
 import { getApprovedLeads, getApprovedReplyLeads, isSuppressed, updateLead } from '../lib/store'
 import { sendLeadEmail, sendReplyEmail } from '../lib/email'
 
@@ -89,8 +89,10 @@ async function main() {
   const sleepMs = Number(process.env.WORKER_SLEEP_MS || 5000)
   const once = process.argv.includes('--once')
 
-  console.log('Trash Site Finder 3000 v2.5 local worker started')
+  console.log('Trash Site Finder 3000 v2.8 local worker started')
   console.log('Heavy scanning/email traffic runs from this Mac. Vercel is not required.')
+
+  let idleLoops = 0
 
   while (true) {
     const job = await claimNextScanJob()
@@ -108,7 +110,15 @@ async function main() {
 
     const sent = await sendApprovedEmailBatch()
     const repliesSent = await sendApprovedReplyBatch()
-    if (!job && sent === 0 && repliesSent === 0) console.log(`idle - no queued jobs or approved emails. Sleeping ${sleepMs}ms.`)
+    if (!job && sent === 0 && repliesSent === 0) {
+      idleLoops++
+      if (idleLoops === 1 || idleLoops % 15 === 0) {
+        const latest = await debugLatestScanJobs().catch(() => [])
+        console.log(`idle - no running jobs or approved emails. Latest jobs: ${latest.length ? latest.join(' | ') : 'none'}. Sleeping ${sleepMs}ms.`)
+      }
+    } else {
+      idleLoops = 0
+    }
     if (once) break
     await sleep(sleepMs)
   }

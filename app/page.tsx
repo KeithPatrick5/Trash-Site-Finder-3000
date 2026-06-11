@@ -133,7 +133,7 @@ export default function Home() {
     const json = await res.json()
     if (!res.ok) return setLog(`Job ${action} failed: ${json.error}`)
     setJob(json.job)
-    setLog(action === 'pause' ? 'Stopped. Worker finishes current batch, then parks. Cursor stays saved.' : action === 'resume' ? 'Queued again. Worker continues from saved cursor.' : 'Reset to start of stored queue.')
+    setLog(action === 'pause' ? 'Stopped. Worker finishes current batch, then parks. Cursor stays saved.' : action === 'resume' ? 'Running. Worker will continue from the saved cursor.' : 'Reset to start of stored queue.')
     await load()
   }
 
