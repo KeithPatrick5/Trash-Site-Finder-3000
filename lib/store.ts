@@ -56,6 +56,7 @@ export async function getApprovedReplyLeads(limit = 25) {
 }
 
 export async function upsertLeads(leads: Lead[]) {
+  if (!leads.length) return
   const sb = supabaseAdmin()
   if (!sb) {
     for (const lead of leads) {
@@ -67,7 +68,17 @@ export async function upsertLeads(leads: Lead[]) {
   }
   const rows = leads.map(toRow)
   const { error } = await sb.from('leads').upsert(rows, { onConflict: 'id' })
-  if (error) throw error
+  if (!error) return
+
+  // User may have an older Supabase schema cached without job_id.
+  // Retry without job_id so the worker does not burn combos while failing every insert.
+  if (/job_id|schema cache/i.test(error.message || '')) {
+    const fallbackRows = rows.map(({ job_id, ...row }) => row)
+    const retry = await sb.from('leads').upsert(fallbackRows, { onConflict: 'id' })
+    if (!retry.error) return
+    throw retry.error
+  }
+  throw error
 }
 
 export async function updateLead(id: string, patch: Partial<Lead>) {

@@ -37,6 +37,8 @@ export async function PATCH(req: Request) {
     scannedCombos: job.scannedCombos,
     createdLeads: job.createdLeads,
     remainingCombos: Math.max(0, job.combos.length - job.cursor),
+    cursor: job.cursor,
+    currentCombo: job.combos[job.cursor] ?? null,
     error: job.error,
     workerLastSeenAt: job.workerLastSeenAt,
     createdAt: job.createdAt,

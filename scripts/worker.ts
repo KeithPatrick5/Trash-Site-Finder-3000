@@ -19,7 +19,7 @@ let sentThisRun = 0
 let scannedCombosThisRun = 0
 
 async function sendApprovedEmailBatch() {
-  const enabled = boolEnv('WORKER_SEND_APPROVED_EMAILS', true)
+  const enabled = boolEnv('WORKER_SEND_APPROVED_EMAILS', false)
   if (!enabled) return 0
 
   const dailyLimit = Number(process.env.MAX_DAILY_EMAILS || process.env.DAILY_SEND_LIMIT || 50)
@@ -53,7 +53,7 @@ async function sendApprovedEmailBatch() {
 
 
 async function sendApprovedReplyBatch() {
-  const enabled = boolEnv('WORKER_SEND_APPROVED_EMAILS', true)
+  const enabled = boolEnv('WORKER_SEND_APPROVED_EMAILS', false)
   if (!enabled) return 0
 
   const dailyLimit = Number(process.env.MAX_DAILY_EMAILS || process.env.DAILY_SEND_LIMIT || 50)

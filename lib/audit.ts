@@ -201,7 +201,12 @@ function extractCandidateContactUrls(html: string, base: string) {
     .filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .map(x => x.url)
-  return Array.from(new Set(ranked))
+  const commonPaths = ['/contact', '/contact-us', '/about', '/about-us', '/request-a-quote', '/quote', '/estimate', '/free-estimate', '/book-online']
+    .map(path => {
+      try { return new URL(path, base).toString() } catch { return '' }
+    })
+    .filter(Boolean)
+  return Array.from(new Set([...ranked, ...commonPaths]))
 }
 
 function extractContactUrl(html: string, base: string) {

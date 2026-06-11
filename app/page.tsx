@@ -5,7 +5,7 @@ import { topCities } from '@/data/cities'
 import { professions } from '@/data/professions'
 import type { Lead, ReplyRecord } from '@/lib/types'
 
-type Job = { id: string; status: string; totalCombos: number; scannedCombos: number; createdLeads: number; remainingCombos: number; error?: string; workerLastSeenAt?: string; createdAt?: string; updatedAt?: string }
+type Job = { id: string; status: string; totalCombos: number; scannedCombos: number; createdLeads: number; remainingCombos: number; cursor?: number; currentCombo?: { profession: string; city: string } | null; error?: string; workerLastSeenAt?: string; createdAt?: string; updatedAt?: string }
 type Usage = { googleTextSearchToday: number; googleTextSearchTodayLimit: number; googleTextSearchMonth: number; googleTextSearchMonthLimit: number }
 
 function isRunnableJob(job: Job) {
@@ -304,7 +304,7 @@ export default function Home() {
       <div className="card heroStatus">
         <h2>Queue control</h2>
         <p className="small statusText">{log}</p>
-        {activeJob && <><div className="progress"><span style={{ width: `${progress}%` }} /></div><div className="small">{activeJob.status.toUpperCase()} · combo {activeJob.scannedCombos} of {activeJob.totalCombos} · leads from this queue {activeJobLeadCount} · left {activeJob.remainingCombos}{activeJob.error ? ` · ${activeJob.error}` : ''}</div></>}
+        {activeJob && <><div className="progress"><span style={{ width: `${progress}%` }} /></div><div className="small">{activeJob.status.toUpperCase()} · combo {activeJob.scannedCombos} of {activeJob.totalCombos} · current {activeJob.currentCombo ? `${activeJob.currentCombo.profession} / ${activeJob.currentCombo.city}` : '-'} · leads from this queue {activeJobLeadCount} · left {activeJob.remainingCombos}{activeJob.error ? ` · ${activeJob.error}` : ''}</div></>}
         <div className="actions" style={{ marginTop: 12 }}>
           <button className="btn" onClick={() => jobAction('resume')} disabled={!activeJob}>Run / Resume</button>
           <button className="btn danger" onClick={() => jobAction('pause')} disabled={!activeJob}>Stop</button>

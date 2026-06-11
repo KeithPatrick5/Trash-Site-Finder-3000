@@ -2,6 +2,13 @@ import { Lead } from './types'
 import { id, nowIso } from './utils'
 import { canUseGoogleTextSearch, recordGoogleTextSearchCall } from './usage'
 
+export class GooglePlacesQuotaError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'GooglePlacesQuotaError'
+  }
+}
+
 export type RawBusiness = {
   name: string
   profession: string
@@ -19,6 +26,11 @@ export async function findBusinesses(profession: string, city: string, max = 100
   if (process.env.GOOGLE_PLACES_API_KEY) {
     const live = await googlePlacesWideSearch(profession, city, limit)
     if (live.length) return live
+
+    // Do not silently switch to fake/demo rows in a real Google run.
+    // Empty Google result sets should save zero leads, not garbage leads.
+    const demoFallback = ['1', 'true', 'yes', 'on'].includes(String(process.env.ENABLE_DEMO_FALLBACK || 'false').toLowerCase())
+    return demoFallback ? demoBusinesses(profession, city, limit) : []
   }
   return demoBusinesses(profession, city, limit)
 }
@@ -76,7 +88,9 @@ async function googlePlacesTextSearch(textQuery: string, profession: string, cit
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      console.warn(`Google Places search failed: ${res.status} ${text.slice(0, 180)}`)
+      const message = `Google Places search failed: ${res.status} ${text.slice(0, 180)}`
+      console.warn(message)
+      if (res.status === 429) throw new GooglePlacesQuotaError(message)
       break
     }
     const json = await res.json()

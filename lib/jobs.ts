@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { findBusinesses, rawToLead } from './discovery'
+import { findBusinesses, GooglePlacesQuotaError, rawToLead } from './discovery'
 import { auditLead } from './audit'
 import { generateMessage } from './messaging'
 import { createScanJob as persistScanJob, getNextQueuedScanJob, getScanJob as getPersistedScanJob, latestScanJobSummary, listScanJobs as listPersistedScanJobs, updateScanJob, upsertLeads } from './store'
@@ -22,6 +22,8 @@ export function publicJob(job: ScanJob) {
     scannedCombos: job.scannedCombos,
     createdLeads: job.createdLeads,
     remainingCombos: Math.max(0, job.combos.length - job.cursor),
+    cursor: job.cursor,
+    currentCombo: job.combos[job.cursor] ?? null,
     error: job.error,
     workerLastSeenAt: job.workerLastSeenAt,
     createdAt: job.createdAt,
@@ -107,7 +109,7 @@ export async function processOneScanBatch(job: ScanJob) {
         return { ...audited, ...msg }
       })
 
-      await upsertLeads(leads)
+      if (leads.length) await upsertLeads(leads)
 
       cursor += 1
       scanned += 1
@@ -125,6 +127,16 @@ export async function processOneScanBatch(job: ScanJob) {
 
       if (status === 'done') return publicJob(lastJob)
     } catch (e: any) {
+      if (e instanceof GooglePlacesQuotaError || /quota exceeded|SearchTextRequest|Google Places search failed: 429/i.test(String(e?.message || e))) {
+        lastJob = await updateScanJob(job.id, {
+          status: 'paused',
+          error: `Google quota/rate limit hit at combo ${cursor + 1}/${job.combos.length}: ${combo.profession} / ${combo.city}`,
+          workerLastSeenAt: nowIso()
+        })
+        console.warn(`paused: Google quota/rate limit hit at ${combo.profession} / ${combo.city}`)
+        return publicJob(lastJob)
+      }
+
       cursor += 1
       scanned += 1
       lastJob = await updateScanJob(job.id, {
