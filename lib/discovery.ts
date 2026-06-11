@@ -36,7 +36,7 @@ async function googlePlacesWideSearch(profession: string, city: string, max: num
   const all: RawBusiness[] = []
   for (const q of queries) {
     if (all.length >= max) break
-    const chunk = await googlePlacesTextSearch(q, profession, city, Math.min(20, max - all.length))
+    const chunk = await googlePlacesTextSearch(q, profession, city, max - all.length)
     all.push(...chunk)
   }
 
@@ -45,39 +45,59 @@ async function googlePlacesWideSearch(profession: string, city: string, max: num
 
 async function googlePlacesTextSearch(textQuery: string, profession: string, city: string, max: number): Promise<RawBusiness[]> {
   const pageSize = Math.max(1, Math.min(20, Number(process.env.PLACES_PAGE_SIZE || 20)))
-  const allowed = await canUseGoogleTextSearch()
-  if (!allowed.ok) {
-    console.warn(`Google Places cap reached: ${allowed.reason}`)
-    return []
+  const maxPages = Math.max(1, Number(process.env.MAX_PAGES_PER_COMBO || 3))
+  const key = process.env.GOOGLE_PLACES_API_KEY!
+  const results: RawBusiness[] = []
+  let pageToken: string | undefined
+
+  for (let page = 0; page < maxPages && results.length < max; page++) {
+    const allowed = await canUseGoogleTextSearch()
+    if (!allowed.ok) {
+      console.warn(`Google Places cap reached: ${allowed.reason}`)
+      break
+    }
+
+    if (pageToken) await delay(2000)
+
+    await recordGoogleTextSearchCall(textQuery)
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': key,
+        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri,nextPageToken'
+      },
+      body: JSON.stringify({ textQuery, pageSize: Math.min(pageSize, max - results.length), pageToken })
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.warn(`Google Places search failed: ${res.status} ${text.slice(0, 180)}`)
+      break
+    }
+    const json = await res.json()
+    results.push(...(json.places ?? []).map((p: any) => {
+      const name = p.displayName?.text ?? 'Unknown business'
+      return {
+        name,
+        profession,
+        city,
+        source: 'google_places',
+        sourceUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${city}`)}`,
+        website: p.websiteUri,
+        phone: p.nationalPhoneNumber,
+        rating: p.rating,
+        reviewCount: p.userRatingCount,
+      }
+    }))
+    pageToken = json.nextPageToken
+    if (!pageToken) break
   }
 
-  const key = process.env.GOOGLE_PLACES_API_KEY!
-  await recordGoogleTextSearchCall(textQuery)
-  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': key,
-      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.websiteUri'
-    },
-    body: JSON.stringify({ textQuery, maxResultCount: Math.min(max, pageSize) })
-  })
-  if (!res.ok) return []
-  const json = await res.json()
-  return (json.places ?? []).slice(0, max).map((p: any) => {
-    const name = p.displayName?.text ?? 'Unknown business'
-    return {
-      name,
-      profession,
-      city,
-      source: 'google_places',
-      sourceUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${name} ${city}`)}`,
-      website: p.websiteUri,
-      phone: p.nationalPhoneNumber,
-      rating: p.rating,
-      reviewCount: p.userRatingCount,
-    }
-  })
+  return results.slice(0, max)
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 function dedupeBusinesses(items: RawBusiness[]) {

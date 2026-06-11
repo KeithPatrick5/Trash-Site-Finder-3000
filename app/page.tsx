@@ -6,6 +6,7 @@ import { professions } from '@/data/professions'
 import type { Lead, ReplyRecord } from '@/lib/types'
 
 type Job = { id: string; status: string; totalCombos: number; scannedCombos: number; createdLeads: number; remainingCombos: number; error?: string; workerLastSeenAt?: string; createdAt?: string; updatedAt?: string }
+type Usage = { googleTextSearchToday: number; googleTextSearchTodayLimit: number; googleTextSearchMonth: number; googleTextSearchMonthLimit: number }
 
 function isRunnableJob(job: Job) {
   return ['queued', 'running', 'paused'].includes(String(job.status).toLowerCase()) && job.remainingCombos > 0
@@ -30,13 +31,14 @@ export default function Home() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [job, setJob] = useState<Job | null>(null)
   const [running, setRunning] = useState(false)
-  const [log, setLog] = useState('Ready. Build the profession × city queue once, then Run/Resume. Stop anytime; the cursor stays saved.')
+  const [log, setLog] = useState('Ready.')
   const [query, setQuery] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [replyText, setReplyText] = useState('')
   const [replyEmail, setReplyEmail] = useState('')
   const [drafts, setDrafts] = useState<Drafts>({})
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
+  const [usage, setUsage] = useState<Usage | null>(null)
 
   async function load() {
     const [leadRes, jobRes, replyRes] = await Promise.all([
@@ -51,6 +53,7 @@ export default function Home() {
     setLeads(nextLeads)
     const nextJobs = jobJson.jobs ?? []
     setJobs(nextJobs)
+    setUsage(jobJson.usage ?? null)
     setJob(prev => pickActiveJob(nextJobs, prev))
     setReplies(replyJson.replies ?? [])
     setDrafts(prev => {
@@ -76,7 +79,7 @@ export default function Home() {
 
   useEffect(() => { load() }, [])
   useEffect(() => {
-    const timer = setInterval(load, 5000)
+    const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
   }, [])
 
@@ -111,7 +114,7 @@ export default function Home() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Could not create queue')
       setJob(json.job)
-      setLog(`Full queue stored. It will try to pull up to ${maxPerCombo} businesses per profession/city, dedupe them, audit them, and keep the cursor.`)
+      setLog(`Full queue stored: ${json.job.totalCombos} combos.`)
       await load()
     } catch (e: any) {
       setLog(`Error: ${e.message}`)
@@ -131,7 +134,7 @@ export default function Home() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Could not create queue')
       setJob(json.job)
-      setLog(`Targeted queue stored. ${json.job.totalCombos} combos saved.`)
+      setLog(`Queue stored: ${json.job.totalCombos} combos.`)
       await load()
     } catch (e: any) {
       setLog(`Error: ${e.message}`)
@@ -146,7 +149,7 @@ export default function Home() {
     const json = await res.json()
     if (!res.ok) return setLog(`Job ${action} failed: ${json.error}`)
     setJob(json.job)
-    setLog(action === 'pause' ? 'Stopped. Worker finishes current batch, then parks. Cursor stays saved.' : action === 'resume' ? 'Running. Worker will continue from the saved cursor.' : 'Reset to start of stored queue.')
+    setLog(action === 'pause' ? 'Stopped.' : action === 'resume' ? 'Running.' : 'Reset.')
     await load()
   }
 
@@ -231,6 +234,9 @@ export default function Home() {
   }), [leads, query, tab])
 
   const activeJob = pickActiveJob(jobs, job)
+  const selectedCombos = selectedProfessions.length * selectedCities.length
+  const estimatedBusinesses = selectedCombos * maxPerCombo
+  const estimatedGoogleCalls = selectedCombos * Math.ceil(maxPerCombo / 20)
   const progress = activeJob ? Math.round((activeJob.scannedCombos / Math.max(1, activeJob.totalCombos)) * 100) : 0
   const stats = {
     total: leads.length,
@@ -259,15 +265,15 @@ export default function Home() {
 
   return <main className="shell">
     <header className="topbar">
-      <div className="brand"><div className="mark">TSF</div><div><div className="brandTitle">Trash Site Finder 3000</div><div className="brandSub">Local lead factory</div></div></div>
-      <div className="systemState"><span className="dot" /> Mac worker · resumable queue · manual approval</div>
+      <div className="brand"><div className="mark">TSF</div><div><div className="brandTitle">Trash Site Finder 3000</div><div className="brandSub">Lead review</div></div></div>
+      <div className="systemState"><span className="dot" /> Local</div>
     </header>
 
     <section className="hero">
       <div className="heroMain">
-        <div className="kicker">Queue → scan → audit → review → reply</div>
-        <h1>Find businesses. Flag broken sites. Track replies.</h1>
-        <p className="sub">Runs locally from your Mac. Keeps the queue saved. Emails stay off until you approve them.</p>
+        <div className="kicker">Scan → review → reply</div>
+        <h1>Find broken sites.</h1>
+        <p className="sub">Open the site. Write the note. Approve the email.</p>
       </div>
       <div className="card heroStatus">
         <h2>Queue control</h2>
@@ -291,12 +297,14 @@ export default function Home() {
       <div className="stat"><b>{stats.approved}</b><span>approved</span></div>
       <div className="stat"><b>{stats.hot}</b><span>hot</span></div>
       <div className="stat"><b>{stats.escrow}</b><span>escrow/upwork</span></div>
+      <div className="stat"><b>{usage ? `${usage.googleTextSearchToday}/${usage.googleTextSearchTodayLimit}` : '-'}</b><span>google today</span></div>
+      <div className="stat"><b>{usage ? `${usage.googleTextSearchMonth}/${usage.googleTextSearchMonthLimit}` : '-'}</b><span>google month</span></div>
     </section>
 
     <section className="grid">
       <aside className="card">
         <h2>Queue builder</h2>
-        <div className="notice">Start small. Build a selected queue first, confirm the data looks right, then scale slowly.</div>
+        <div className="notice">Selected: {selectedCombos} combos · up to {estimatedBusinesses.toLocaleString()} businesses · about {estimatedGoogleCalls.toLocaleString()} Google calls.</div>
         <div className="row"><label>Max businesses per combo</label><input type="number" min={1} max={500} value={maxPerCombo} onChange={e => setMaxPerCombo(Number(e.target.value))} /></div>
         <button className="btn" disabled={running} onClick={createTargetedQueue}>Build Selected Queue</button>
         <div className="actions" style={{ marginTop: 10 }}>
@@ -361,7 +369,7 @@ export default function Home() {
               <div className="actions footActions"><button className="btn secondary" onClick={() => mark(lead.id, 'hot', { dealStage: 'interested' })}>Yes / Hot</button><button className="btn secondary" onClick={() => mark(lead.id, 'preview_sent', { dealStage: 'preview_sent' })}>Preview sent</button><button className="btn secondary" onClick={() => mark(lead.id, 'upwork_sent', { dealStage: 'upwork_sent', paymentPreference: 'upwork' })}>Upwork sent</button><button className="btn secondary" onClick={() => mark(lead.id, 'won', { dealStage: 'won' })}>Won</button><button className="btn secondary" onClick={() => mark(lead.id, 'dead', { dealStage: 'lost' })}>No / Dead</button></div>
             </article>
           })}
-          {filtered.length === 0 && <div className="notice">No leads in this bucket yet. Build a queue and make sure <code>npm run local</code> is running.</div>}
+          {filtered.length === 0 && <div className="notice">No leads in this bucket.</div>}
         </div>
       </section>
     </section>

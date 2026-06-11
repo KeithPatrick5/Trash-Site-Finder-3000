@@ -104,11 +104,9 @@ function scoreLead(lead: Lead, issues: SiteIssue[], mobile: number | null) {
 
 async function pageSpeed(url?: string): Promise<{ mobile: number | null; desktop: number | null }> {
   if (!url) return { mobile: null, desktop: null }
+  const enabled = ['1', 'true', 'yes', 'on'].includes(String(process.env.ENABLE_PAGESPEED || 'false').toLowerCase())
   const key = process.env.GOOGLE_PAGESPEED_API_KEY
-  if (!key || url.includes('example.')) {
-    const fake = Math.floor(25 + Math.random() * 55)
-    return { mobile: fake, desktop: Math.min(99, fake + 18) }
-  }
+  if (!enabled || !key || url.includes('example.')) return { mobile: null, desktop: null }
   const fetchScore = async (strategy: 'mobile' | 'desktop') => {
     try {
       const api = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=${strategy}&key=${key}`

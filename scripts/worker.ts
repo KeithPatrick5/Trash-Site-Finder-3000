@@ -89,8 +89,8 @@ async function main() {
   const sleepMs = Number(process.env.WORKER_SLEEP_MS || 5000)
   const once = process.argv.includes('--once')
 
-  console.log('Trash Site Finder 3000 v2.8 local worker started')
-  console.log('Heavy scanning/email traffic runs from this Mac. Vercel is not required.')
+  console.log('Trash Site Finder 3000 v2.11 local worker started')
+  console.log('Worker ready. Processing running/queued jobs only within your env caps.')
 
   let idleLoops = 0
 

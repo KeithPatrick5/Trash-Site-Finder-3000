@@ -172,7 +172,7 @@ export async function listScanJobs(limit = 25) {
 
 export async function getNextQueuedScanJob() {
   const sb = supabaseAdmin()
-  if (!sb) return demoJobs.find(j => normalizeStatus(j.status) === 'running') ?? null
+  if (!sb) return demoJobs.find(j => ['running', 'queued'].includes(normalizeStatus(j.status)) && j.cursor < j.combos.length) ?? null
 
   const { data, error } = await sb.from('scan_jobs')
     .select('*')
@@ -180,7 +180,7 @@ export async function getNextQueuedScanJob() {
     .limit(50)
 
   if (error) throw error
-  const row = (data ?? []).find(r => normalizeStatus(r.status) === 'running')
+  const row = (data ?? []).find(r => ['running', 'queued'].includes(normalizeStatus(r.status)) && Number(r.cursor ?? 0) < (Array.isArray(r.combos) ? r.combos.length : 0))
   return row ? fromJobRow(row) : null
 }
 

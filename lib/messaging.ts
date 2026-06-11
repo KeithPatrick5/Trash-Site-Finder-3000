@@ -2,7 +2,8 @@ import OpenAI from 'openai'
 import { Lead } from './types'
 
 export async function generateMessage(lead: Lead): Promise<{ subject: string; message: string }> {
-  if (process.env.OPENAI_API_KEY) {
+  const aiEnabled = ['1', 'true', 'yes', 'on'].includes(String(process.env.ENABLE_AI || 'false').toLowerCase())
+  if (aiEnabled && process.env.OPENAI_API_KEY) {
     try {
       return await aiMessage(lead)
     } catch {
